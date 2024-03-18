@@ -1,0 +1,3 @@
+404 - not found 
+401- not valid authorization credentials
+403- forbidden
