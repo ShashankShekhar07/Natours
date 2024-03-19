@@ -10,6 +10,28 @@ const signToken= id => {
         expiresIn: process.env.JWT_EXPIRES_IN
     });
 }
+const createSendToken = (user,statusCode,res) => {
+    const token =signToken(user._id);
+    const options = {
+        expires: new Date(Date.now()+ process.env.JWT_COOKIE_EXPIRES_IN*24*60*60*1000),
+        httpsOnly : true, //For crossfit attack
+    }   
+    if(process.env.NODE_ENV=== 'production' ){
+        options.secure= true;
+    }
+
+    res.cookie('jwt',token,options);
+    //Remove password from output
+    user.password= undefined;
+
+    res.status(statusCode).json({
+        status: 'success',
+        token,
+        data: {
+            user
+        }
+    });
+}
 
 exports.signup = catchAsync(async(req,res,next) => {
     // const newUser= await User.create(req.body);
@@ -22,15 +44,7 @@ exports.signup = catchAsync(async(req,res,next) => {
         role: req.body.role
     })
     //jwt.sign(payload, secretOrPrivateKey, [options, callback])
-    const token = signToken(newUser._id);
-    
-    res.status(201).json({
-        status: 'success',
-        token : token,
-        data: {
-            user: newUser
-        }
-    });
+    createSendToken(newUser,201,res);
 }); 
 
 exports.login = catchAsync(async(req,res,next) => {
@@ -49,11 +63,7 @@ exports.login = catchAsync(async(req,res,next) => {
     }
     //3)If okay ,send token to client
 
-    const token = signToken(user._id);
-    res.status(200).json({
-        status: 'success',
-        token: token
-    });
+    createSendToken(user,200,res);
 
 });
 //this function checks if the user is logged in or not
@@ -135,7 +145,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 })
 
 
-exports.resetPassword = catchAsync(async (req,res,next) => {
+exports.resetPassword = catchAsync(async (req,res,next) => { //INPUT TOKEN and you will change the password
     //1) Get user based on the token
         const hashedToken = crypto
         .createHash('sha256')
@@ -159,14 +169,24 @@ exports.resetPassword = catchAsync(async (req,res,next) => {
    
     //3) Update changePasswordAt property for the user
     //4) Log the user in, send JWT
-    const token = signToken(newUser._id);
-    
-    res.status(201).json({
-        status: 'success',
-        token : token,
-        data: {
-            user: newUser
-        }
-    });
+    createSendToken(user,200,res);
 
+})
+
+exports.updatePassword = catchAsync(async(req,res,next) => {
+    //Update password when you are logged in
+    //1) Get user from the collection
+    const user = await User.findById(req.user.id).select('+password');
+    //2) Check if the posted password is correct
+    if(!(await user.correctPassword(req.body.passwordCurrent,user.password))){
+        return next( new AppError('Your curret password is wrong.',401))
+    }
+    //3) If the password is correct, update the password
+    //Cannot use find by Id and update because of two reasons one password validator only works on create and save
+    //And the swcond reason is the two pre save middlewares will not work
+    user.password =req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    await user.save();
+    //4) Log user in, send JWT
+    createSendToken(user,200,res);
 })

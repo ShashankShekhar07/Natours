@@ -1,101 +1,46 @@
-// // const express = require('express');
-// // const morgan = require('morgan');
-
-// // const tourRouter = require('./routes/tourRoutes.js');
-// // const userRouter = require('./routes/userRoutes.js');
-
-// // const app = express();
-
-// // // 1) MIDDLEWARES
-// // if (process.env.NODE_ENV === 'development') {
-// //   app.use(morgan('dev'));
-// // }
-
-// // app.use(express.json());
-// // app.use(express.static(`${__dirname}/public`));
-
-// // app.use((req, res, next) => {
-// //   console.log('Hello from the middleware 👋');
-// //   next();
-// // });
-
-// // app.use((req, res, next) => {
-// //   req.requestTime = new Date().toISOString();
-// //   next();
-// // });
-
-// // // 3) ROUTES
-// // app.use('/api/v1/tours', tourRouter);
-// // app.use('/api/v1/users', userRouter);
-
-// // module.exports = app;
-
-// const express = require('express');
-// const morgan = require('morgan');
-// const AppError = require('./utils/appError');
-// const globalErrorHandler = require('./controllers/errorController.js')
-// const tourRouter = require('./routes/tourRoutes');
-// const userRouter = require('./routes/userRoutes');
-
-// const app = express();
-
-// // 1) MIDDLEWARES
-// if (process.env.NODE_ENV === 'development') {
-//   app.use(morgan('dev'));
-// }
-
-// app.use(express.json());
-// app.use(express.static(`${__dirname}/public`));
-
-// app.use((req, res, next) => {
-//   console.log('Hello from the middleware 👋');
-//   next();
-// });
-
-// app.use((req, res, next) => {
-//   req.requestTime = new Date().toISOString();
-//   next();
-// });
-
-// // 3) ROUTES
-// app.use('/api/v1/tours', tourRouter);
-// app.use('/api/v1/users', userRouter);
-
-// //This middleware is for all the left routes which are not of the above two .All function works for all elements like find,patch,update,delete
-// app.all('*',(req,res,next) => {
-//   // res.status(404).json({
-//   //   status: 'fail',
-//   //   message: `Can't find ${req.originalUrl} on this server!`
-//   // });
-//   next(new AppError (`Can;t find ${req.originalUrl} on this server!`,404));
-//   // const err =new Error(`Can't find ${req.originalUrl} on this server!`);
-//   // err.status = 'fail';
-//   // err.statusCode = 404;
-
-//   // next(err); //if this happens it will ignore all other middlewares and go for the final one
-// });
-
-// app.use(globalErrorHandler);
-
-// module.exports = app;
 const express = require('express');
 const morgan = require('morgan');
-
+const rateLimit = require('express-rate-limit');
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
-
+const helmet =require('helmet');
 const app = express();
-
-// 1) MIDDLEWARES
+const mongoSanitize = require('express-mongo-sanitize');
+const zss= require('xss-clean');
+// 1) GLOBAL MIDDLEWARES
+//Set security HTTP headers
+app.use(helmet())
+//Development logginf
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-app.use(express.json());
-app.use(express.static(`${__dirname}/public`));
+//npm i express-rate-limit
+const limiter = rateLimit({
+  max: 100,
+  windowsMs: 60*60*1000,
+  message: 'Too many requests from this IP, please try again in an hour!'
+});
 
+app.use('/api', limiter);
+// app.use(helmet())
+//Body parser, reading data from body into req.body
+app.use(express.json({limit: '10kb'}));
+
+//Data sanitization agianst NOSQL query injection
+app.use(mongoSanitize());
+
+//Data sanitization against XSS
+app.use(xss());
+
+
+
+
+//Serving static files
+app.use(express.static(`${__dirname}/public`));
+//Test middleware
 app.use((req, res, next) => {
   req.requestTime = new Date().toISOString();
   // console.log(req.headers);
