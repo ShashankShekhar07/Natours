@@ -21,7 +21,7 @@ class APIFeatures {
     sort(){
       if(this.queryString.sort){
         const sortBy = this.queryString.sort.split(',').join(' ');
-        // console.log(sortBy);
+        console.log(this.queryString.sort);
         this.query = this.query.sort(sortBy);
         // query=query.sort(sortBy)
         //In mongoose you can sort using query.sort(price ratingsAverage)

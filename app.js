@@ -8,7 +8,8 @@ const userRouter = require('./routes/userRoutes');
 const helmet =require('helmet');
 const app = express();
 const mongoSanitize = require('express-mongo-sanitize');
-const zss= require('xss-clean');
+const xss= require('xss-clean');
+const hpp =require('hpp');
 // 1) GLOBAL MIDDLEWARES
 //Set security HTTP headers
 app.use(helmet())
@@ -35,7 +36,12 @@ app.use(mongoSanitize());
 //Data sanitization against XSS
 app.use(xss());
 
-
+//Prevent parameter pollution
+app.use(hpp({
+  whitelist: [
+    'duration','ratingsQuantity','ratingsAverage','maxGroupSize','difficulty','price'
+  ]
+}));
 
 
 //Serving static files
